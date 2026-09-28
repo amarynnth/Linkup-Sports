@@ -1,0 +1,84 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800;900&family=Manrope:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Orbitron", sans-serif;
+  --font-sans: "Manrope", system-ui, sans-serif;
+
+  --color-void: #05060a;
+  --color-surface: #0d0f16;
+  --color-surface-2: #141821;
+  --color-surface-3: #1b202c;
+  --color-line: #262c3a;
+
+  --color-lime: #c6ff3d;
+  --color-lime-dim: #8fb82e;
+  --color-cyan: #3de0ff;
+  --color-violet: #a06bff;
+  --color-coral: #ff5d73;
+  --color-amber: #ffb020;
+
+  --color-ink: #f4f6f8;
+  --color-ink-dim: #98a1b3;
+  --color-ink-faint: #5b6375;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-void);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::-webkit-scrollbar {
+  display: none;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.glow-lime {
+  box-shadow: 0 0 0 1px rgba(198,255,61,0.25), 0 0 24px -4px rgba(198,255,61,0.35);
+}
+
+.bg-grid {
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(255,255,255,0.06) 1px, transparent 0);
+  background-size: 22px 22px;
+}
+
+.text-gradient {
+  background: linear-gradient(90deg, #c6ff3d, #3de0ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.9); opacity: 0.6; }
+  70% { transform: scale(1.4); opacity: 0; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+.pulse-ring::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1.5px solid var(--color-lime);
+  animation: pulse-ring 2s cubic-bezier(0.2, 0.6, 0.4, 1) infinite;
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
