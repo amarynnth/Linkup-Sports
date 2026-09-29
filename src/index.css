@@ -82,3 +82,11 @@ body {
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
+
+/* iOS Safari auto-zooms the page on focus for any input/select/textarea
+   with a computed font-size under 16px. Most form fields here use
+   text-sm (14px), so this forces 16px specifically on form controls to
+   stop that zoom — everything else on the page keeps its normal size. */
+input, select, textarea {
+  font-size: 16px;
+}
