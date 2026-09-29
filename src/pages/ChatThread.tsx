@@ -82,8 +82,8 @@ export default function ChatThread() {
   };
 
   return (
-    <div className="flex h-screen flex-col pb-20">
-      <header className="safe-top sticky top-0 z-20 flex items-center gap-3 border-b border-line bg-void/95 px-5 py-4 backdrop-blur-lg">
+    <div className="pb-48">
+      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-line bg-void/95 px-5 py-4 backdrop-blur-lg">
         <button onClick={() => navigate('/chat')} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface text-ink-dim">
           <ArrowLeft size={17} />
         </button>
@@ -127,7 +127,7 @@ export default function ChatThread() {
         </div>
       )}
 
-      <main className="flex-1 overflow-y-auto px-5 py-4">
+      <main className="px-5 py-4">
         {thread.length === 0 && (
           <p className="mt-8 text-center text-xs text-ink-faint">
             {session ? 'No messages yet — say hi to everyone in this game.' : `No messages yet — say hi to ${friend!.name.split(' ')[0]}.`}
@@ -156,14 +156,14 @@ export default function ChatThread() {
       </main>
 
       {sendError && (
-        <div className="px-5 pb-1">
-          <p className="rounded-xl border border-coral/40 bg-coral/10 px-3.5 py-2 text-xs font-semibold text-coral">
+        <div className="fixed bottom-[136px] left-0 right-0 z-30 px-5">
+          <p className="mx-auto max-w-md rounded-xl border border-coral/40 bg-coral/10 px-4 py-2.5 text-center text-xs font-semibold text-coral">
             {sendError}
           </p>
         </div>
       )}
 
-      <div className="safe-bottom flex items-center gap-2 border-t border-line bg-void/95 px-4 py-3 backdrop-blur-lg">
+      <div className="safe-bottom fixed bottom-20 left-0 right-0 z-30 flex items-center gap-2 border-t border-line bg-void/95 px-4 py-3 backdrop-blur-lg">
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
