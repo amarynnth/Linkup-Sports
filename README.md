@@ -8,9 +8,13 @@ can bring to venues.
 
 ## What's built
 
-- **Unified open-play feed** — every public session in one list, sorted by
-  distance from the player using the browser's geolocation (falls back to New
-  Kingston if location is denied).
+- **Unified open-play feed** — every public session in one list, filterable
+  by sport and parish, sorted by soonest start time.
+- **Chat** — a dedicated tab for talking to people, in two places: DM any
+  friend directly, and a group chat for everyone in an open play session
+  once you've joined it (or you're hosting). From inside a game's chat you
+  can add anyone there as a friend with one tap — no code exchange needed,
+  since you're both already looking at the same session.
 - **Private, invite-only sessions** — perfect for a standing weekly game.
   Toggle a session to Private when creating it and you get a 6-character
   invite code to text your crew; they join from Discover → "Have a code?"
@@ -26,10 +30,11 @@ can bring to venues.
   optional note ("send before Friday"). It shows on the session page to
   everyone who joins.
 - **Friends and in-app notifications** — add friends by sharing a 6-character
-  friend code (Profile → Friends). When a friend posts a public open game
-  you'll see a live banner if the app is open, plus a badge on the bell icon
-  and an entry in Notifications the next time you open it. See "How
-  notifications actually work" below for what this does and doesn't cover.
+  friend code (Profile → Friends), or with one tap from inside a shared
+  game's chat. When a friend posts a public open game you'll see a live
+  banner if the app is open, plus a badge on the bell icon and an entry in
+  Notifications the next time you open it. See "How notifications actually
+  work" below for what this does and doesn't cover.
 - **No login required** — each device gets a lightweight local identity (a
   name you pick, stored on your phone/browser) instead of email/password
   accounts, so friends can start using it in seconds.
@@ -198,6 +203,25 @@ If you skip step 1 and push the code first, posting a new session will
 fail (the database won't have the columns the app is trying to write to)
 — so migration first, code push second.
 
+## Shipping this specific update (chat)
+
+This update adds a new `messages` table, so it needs the same
+migration-first-then-code order as above:
+
+1. **Run the migration.** Supabase project → SQL Editor → New query, paste
+   in the full contents of `supabase/migration_003_chat.sql`, and run it.
+   This creates the `messages` table and turns on Realtime for it — without
+   that last part, messages will save but won't show up live for the other
+   person until they reopen the chat.
+2. **Get the new code in and push it**, same as any other update — see the
+   steps above (unzip into your project folder without disturbing `.git`,
+   then `git add -A`, `git commit`, `git push`).
+3. **Confirm it worked**: open the live site, you should see a new Chat
+   icon in the bottom bar between Discover and My Games. Open a friend's
+   chat or a game you're in and send a message — it should appear
+   immediately on your end, and on a friend's device within a second or
+   two if they have that same thread open.
+
 ## How notifications actually work
 
 Right now this is **in-app only** — there's no push notification that
@@ -286,7 +310,7 @@ npm run preview   # preview the production build
 
 ```
 src/
-  types.ts                   domain model (sessions, payments, friends, favorites)
+  types.ts                   domain model (sessions, payments, friends, favorites, chat)
   data/mockData.ts           seed data — sports, sessions, parishes, plus
                               unused venue/business seed data kept for later
                               (see "Where venues are headed" above)
@@ -294,17 +318,20 @@ src/
                               unused for now, kept for the same reason)
   lib/cost.ts                 cost-per-person / free / display helpers
   lib/codes.ts                shared short-code generator (invites + friend codes)
+  lib/chat.ts                 dmThreadId — stable conversation key for two people
   lib/supabaseClient.ts      Supabase client + isSupabaseConfigured flag
-  context/                   Identity, Sessions, Friends, Notifications, Favorites
+  context/                   Identity, Sessions, Friends, Notifications, Favorites, Chat
                               (LocationContext.tsx is unused, kept for the same reason)
   components/                 SplashScreen, NameGate, FriendGameToast, UpdateWatcher,
                               BottomNav, SportChip, SessionCard, PageHeader
-  pages/                      Feed, SessionDetail, CreateSession,
-                              JoinByCode, Friends, Notifications, MyGames, Profile
+  pages/                      Feed, SessionDetail, CreateSession, JoinByCode, Friends,
+                              Notifications, MyGames, Profile, Chat, ChatThread
 scripts/write-version.mjs    stamps public/version.json on every build (see above)
 supabase/schema.sql           run once in the Supabase SQL editor for a fresh project
 supabase/migration_002_freeform_venues.sql
                               run once against an ALREADY-LIVE project to pick up
                               the freeform-venue change (see below)
+supabase/migration_003_chat.sql
+                              run once against an ALREADY-LIVE project to add chat
 .env.example                  copy to .env for live mode
 ```

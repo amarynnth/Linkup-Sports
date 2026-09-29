@@ -13,6 +13,8 @@ import Friends from './pages/Friends';
 import Notifications from './pages/Notifications';
 import MyGames from './pages/MyGames';
 import Profile from './pages/Profile';
+import Chat from './pages/Chat';
+import ChatThread from './pages/ChatThread';
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
@@ -38,6 +40,8 @@ export default function App() {
           <Route path="/join" element={<JoinByCode />} />
           <Route path="/friends" element={<Friends />} />
           <Route path="/notifications" element={<Notifications />} />
+          <Route path="/chat" element={<Chat />} />
+          <Route path="/chat/:scope/:scopeId" element={<ChatThread />} />
           <Route path="/my-games" element={<MyGames />} />
           <Route path="/profile" element={<Profile />} />
         </Routes>

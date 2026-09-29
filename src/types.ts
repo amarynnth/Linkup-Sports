@@ -107,6 +107,20 @@ export interface FavoriteVenue {
   parish: string;
 }
 
+export type ChatScope = 'dm' | 'session';
+
+export interface ChatMessage {
+  id: string;
+  scope: ChatScope;
+  /** For 'dm': a stable pair key (see dmThreadId in lib/chat.ts). For 'session': the session id. */
+  scopeId: string;
+  senderId: string;
+  senderName: string;
+  senderInitials: string;
+  body: string;
+  createdAt: string;
+}
+
 export interface FriendProfile {
   id: string;
   name: string;

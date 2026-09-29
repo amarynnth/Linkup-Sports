@@ -8,6 +8,7 @@ import { SessionsProvider } from './context/SessionsContext'
 import { FriendsProvider } from './context/FriendsContext'
 import { NotificationsProvider } from './context/NotificationsContext'
 import { FavoritesProvider } from './context/FavoritesContext'
+import { ChatProvider } from './context/ChatContext'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -17,7 +18,9 @@ createRoot(document.getElementById('root')!).render(
           <FriendsProvider>
             <NotificationsProvider>
               <FavoritesProvider>
-                <App />
+                <ChatProvider>
+                  <App />
+                </ChatProvider>
               </FavoritesProvider>
             </NotificationsProvider>
           </FriendsProvider>

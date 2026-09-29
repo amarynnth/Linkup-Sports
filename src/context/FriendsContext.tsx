@@ -19,6 +19,10 @@ interface FriendsState {
   loading: boolean;
   isLive: boolean;
   addFriendByCode: (code: string) => Promise<AddFriendResult>;
+  /** Add someone you already know the id/name of — e.g. from a shared session's
+   * chat — without the code-exchange step, since you're already both looking
+   * at the same session. */
+  addFriendById: (profile: { id: string; name: string; initials: string }) => Promise<AddFriendResult>;
   removeFriend: (friendId: string) => Promise<void>;
 }
 
@@ -91,6 +95,28 @@ export function FriendsProvider({ children }: { children: ReactNode }) {
     return { ok: true };
   };
 
+  const addFriendById = async (profile: { id: string; name: string; initials: string }): Promise<AddFriendResult> => {
+    if (profile.id === myId) return { ok: false, error: "That's you!" };
+    if (friends.some((f) => f.id === profile.id)) return { ok: true };
+
+    if (!supabase) {
+      // Demo mode: no shared backend to write a friendship row to, but
+      // there's no reason to block the interaction locally either.
+      setFriends((prev) => [...prev, { ...profile, friendCode: '' }]);
+      return { ok: true };
+    }
+
+    const now = new Date().toISOString();
+    const { error } = await supabase.from('friendships').insert([
+      { id: `f-${myId}-${profile.id}`, user_id: myId, friend_id: profile.id, created_at: now },
+      { id: `f-${profile.id}-${myId}`, user_id: profile.id, friend_id: myId, created_at: now },
+    ]);
+    if (error) return { ok: false, error: error.message };
+
+    await refresh();
+    return { ok: true };
+  };
+
   const removeFriend = async (friendId: string) => {
     setFriends((prev) => prev.filter((f) => f.id !== friendId));
     if (!supabase) return;
@@ -99,7 +125,9 @@ export function FriendsProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <FriendsContext.Provider value={{ friends, loading, isLive: isSupabaseConfigured, addFriendByCode, removeFriend }}>
+    <FriendsContext.Provider
+      value={{ friends, loading, isLive: isSupabaseConfigured, addFriendByCode, addFriendById, removeFriend }}
+    >
       {children}
     </FriendsContext.Provider>
   );

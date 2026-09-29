@@ -104,3 +104,35 @@ drop policy if exists "public delete" on friendships;
 create policy "public read" on friendships for select using (true);
 create policy "public insert" on friendships for insert with check (true);
 create policy "public delete" on friendships for delete using (true);
+
+
+-- Messages — both direct messages between two friends and group chat for
+-- everyone in an open play session live in one table, distinguished by
+-- `scope` + `scope_id`:
+--   scope = 'dm'      -> scope_id is a stable pair key, the two player ids
+--                        sorted and joined with "__" (see lib/chat.ts)
+--   scope = 'session'  -> scope_id is the session's id, shared by everyone
+--                        currently joined or hosting it
+create table if not exists messages (
+  id text primary key,
+  scope text not null check (scope in ('dm', 'session')),
+  scope_id text not null,
+  sender_id text not null,
+  sender_name text not null,
+  sender_initials text not null,
+  body text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists messages_scope_idx on messages (scope, scope_id, created_at);
+
+alter table messages enable row level security;
+
+drop policy if exists "public read" on messages;
+drop policy if exists "public insert" on messages;
+
+create policy "public read" on messages for select using (true);
+create policy "public insert" on messages for insert with check (true);
+
+-- Don't forget Realtime for this table too, same as sessions:
+--   alter publication supabase_realtime add table messages;
