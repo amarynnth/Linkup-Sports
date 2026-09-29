@@ -11,7 +11,7 @@ import { formatWhen } from '../lib/geo';
 export default function Chat() {
   const { friends } = useFriends();
   const { sessions, joinedSessionIds, hostedSessionIds } = useSessions();
-  const { messages } = useChat();
+  const { messages, isThreadUnread } = useChat();
   const { id: myId } = useIdentity();
 
   const myGameChats = sessions
@@ -41,7 +41,9 @@ export default function Chat() {
           ) : (
             <div className="flex flex-col gap-2">
               {friends.map((f) => {
-                const last = lastMessageFor('dm', dmThreadId(myId, f.id));
+                const threadId = dmThreadId(myId, f.id);
+                const last = lastMessageFor('dm', threadId);
+                const unread = isThreadUnread('dm', threadId);
                 return (
                   <Link
                     key={f.id}
@@ -53,10 +55,11 @@ export default function Chat() {
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold text-ink">{f.name}</p>
-                      <p className="truncate text-xs text-ink-faint">
+                      <p className={`truncate text-xs ${unread ? 'font-semibold text-ink' : 'text-ink-faint'}`}>
                         {last ? (last.senderId === myId ? `You: ${last.body}` : last.body) : 'Say hi 👋'}
                       </p>
                     </div>
+                    {unread && <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-coral" />}
                   </Link>
                 );
               })}
@@ -75,6 +78,7 @@ export default function Chat() {
               {myGameChats.map((s) => {
                 const sport = getSport(s.sportId);
                 const last = lastMessageFor('session', s.id);
+                const unread = isThreadUnread('session', s.id);
                 return (
                   <Link
                     key={s.id}
@@ -91,10 +95,11 @@ export default function Chat() {
                       <p className="truncate text-sm font-bold text-ink">
                         {sport.name} · {s.venueName}
                       </p>
-                      <p className="truncate text-xs text-ink-faint">
+                      <p className={`truncate text-xs ${unread ? 'font-semibold text-ink' : 'text-ink-faint'}`}>
                         {last ? `${last.senderName.split(' ')[0]}: ${last.body}` : `${formatWhen(s.startsAt)} · ${s.joined.length} in chat`}
                       </p>
                     </div>
+                    {unread && <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-coral" />}
                     <span className="flex items-center gap-1 shrink-0 text-[10px] font-bold text-ink-faint">
                       <Users size={11} /> {s.joined.length}
                     </span>

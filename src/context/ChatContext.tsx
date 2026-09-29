@@ -1,11 +1,36 @@
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useMemo, type ReactNode } from 'react';
 import type { ChatMessage, ChatScope } from '../types';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 import { useIdentity } from './IdentityContext';
+import { useSessions } from './SessionsContext';
 import { dmThreadId } from '../lib/chat';
 
 const DEMO_MESSAGES_KEY = 'linkup_demo_messages';
 const DEMO_SEEDED_KEY = 'linkup_demo_messages_seeded';
+const LAST_READ_KEY = 'linkup_chat_last_read';
+
+function threadKey(scope: ChatScope, scopeId: string) {
+  return `${scope}:${scopeId}`;
+}
+
+function loadLastRead(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(LAST_READ_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveLastRead(map: Record<string, string>) {
+  try {
+    localStorage.setItem(LAST_READ_KEY, JSON.stringify(map));
+  } catch {
+    // storage unavailable — read state just won't persist across reloads
+  }
+}
 
 function loadDemoMessages(): ChatMessage[] {
   try {
@@ -61,14 +86,22 @@ interface ChatState {
   isLive: boolean;
   /** Throws if the message couldn't be saved (e.g. a failed live-mode write) — callers should surface that instead of assuming it sent. */
   sendMessage: (scope: ChatScope, scopeId: string, body: string) => Promise<void>;
+  /** Call when a thread is opened/viewed so its messages stop counting as unread. */
+  markThreadRead: (scope: ChatScope, scopeId: string) => void;
+  /** True if this specific thread has a message from someone else newer than the last time it was marked read. */
+  isThreadUnread: (scope: ChatScope, scopeId: string) => boolean;
+  /** True if ANY thread you're part of (a DM you're in, or a session you've joined/host) has unread messages — drives the nav's red dot. */
+  hasUnread: boolean;
 }
 
 const ChatContext = createContext<ChatState | null>(null);
 
 export function ChatProvider({ children }: { children: ReactNode }) {
   const { id: myId, name: myName, initials: myInitials } = useIdentity();
+  const { joinedSessionIds, hostedSessionIds } = useSessions();
   const [messages, setMessages] = useState<ChatMessage[]>(isSupabaseConfigured ? [] : loadDemoMessages());
   const [loading, setLoading] = useState(isSupabaseConfigured);
+  const [lastRead, setLastRead] = useState<Record<string, string>>(loadLastRead);
 
   // Demo-mode seed: gives a freshly-opened demo something to look at in a DM
   // with one of the seeded demo friends (see FriendsContext). Deferred to an
@@ -153,8 +186,60 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const markThreadRead = useCallback((scope: ChatScope, scopeId: string) => {
+    const key = threadKey(scope, scopeId);
+    const now = new Date().toISOString();
+    setLastRead((prev) => {
+      const next = { ...prev, [key]: now };
+      saveLastRead(next);
+      return next;
+    });
+  }, []);
+
+  const isThreadUnread = useCallback(
+    (scope: ChatScope, scopeId: string) => {
+      const readAt = lastRead[threadKey(scope, scopeId)];
+      return messages.some(
+        (m) => m.scope === scope && m.scopeId === scopeId && m.senderId !== myId && (!readAt || m.createdAt > readAt),
+      );
+    },
+    [messages, lastRead, myId],
+  );
+
+  // Which threads are "mine" at all — a DM I'm one of the two participants
+  // in, or a session I've joined or host. Used to keep the nav dot scoped to
+  // things relevant to me rather than lighting up for unrelated chats.
+  const mySessionIds = useMemo(
+    () => new Set([...joinedSessionIds, ...hostedSessionIds]),
+    [joinedSessionIds, hostedSessionIds],
+  );
+
+  const isRelevantThread = useCallback(
+    (scope: ChatScope, scopeId: string) => {
+      if (scope === 'session') return mySessionIds.has(scopeId);
+      if (!myId) return false;
+      return scopeId.split('__').includes(myId);
+    },
+    [mySessionIds, myId],
+  );
+
+  const hasUnread = useMemo(() => {
+    const checked = new Set<string>();
+    for (const m of messages) {
+      if (m.senderId === myId) continue;
+      const key = threadKey(m.scope, m.scopeId);
+      if (checked.has(key)) continue;
+      checked.add(key);
+      if (!isRelevantThread(m.scope, m.scopeId)) continue;
+      if (isThreadUnread(m.scope, m.scopeId)) return true;
+    }
+    return false;
+  }, [messages, isRelevantThread, isThreadUnread, myId]);
+
   return (
-    <ChatContext.Provider value={{ messages, loading, isLive: isSupabaseConfigured, sendMessage }}>
+    <ChatContext.Provider
+      value={{ messages, loading, isLive: isSupabaseConfigured, sendMessage, markThreadRead, isThreadUnread, hasUnread }}
+    >
       {children}
     </ChatContext.Provider>
   );

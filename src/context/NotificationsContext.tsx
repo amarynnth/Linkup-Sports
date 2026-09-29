@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useMemo, type ReactNode } from 'react';
-import type { OpenPlaySession } from '../types';
+import type { FriendProfile, OpenPlaySession } from '../types';
 import { useSessions } from './SessionsContext';
 import { useFriends } from './FriendsContext';
 import { useIdentity } from './IdentityContext';
@@ -9,7 +9,9 @@ const SEEN_KEY = 'linkup_notifications_seen_at';
 interface NotificationsState {
   /** Public sessions hosted by a friend (not you), newest first. */
   friendGames: OpenPlaySession[];
-  /** How many of those were posted since you last opened Notifications. */
+  /** Friend requests waiting on you — stays until you Accept/Decline, not cleared by just viewing. */
+  friendRequests: FriendProfile[];
+  /** How many friend-posted games were posted since you last opened Notifications, plus any pending friend requests. */
   unseenCount: number;
   markAllSeen: () => void;
 }
@@ -24,7 +26,7 @@ const NotificationsContext = createContext<NotificationsState | null>(null);
  */
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const { sessions } = useSessions();
-  const { friends } = useFriends();
+  const { friends, pendingIncoming } = useFriends();
   const { id: myId } = useIdentity();
   const [lastSeenAt, setLastSeenAt] = useState(
     () => localStorage.getItem(SEEN_KEY) || new Date(0).toISOString(),
@@ -40,8 +42,9 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   const unseenCount = useMemo(() => {
     const seenMs = new Date(lastSeenAt).getTime();
-    return friendGames.filter((s) => new Date(s.createdAt).getTime() > seenMs).length;
-  }, [friendGames, lastSeenAt]);
+    const unseenGames = friendGames.filter((s) => new Date(s.createdAt).getTime() > seenMs).length;
+    return unseenGames + pendingIncoming.length;
+  }, [friendGames, lastSeenAt, pendingIncoming]);
 
   const markAllSeen = () => {
     const now = new Date().toISOString();
@@ -50,7 +53,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <NotificationsContext.Provider value={{ friendGames, unseenCount, markAllSeen }}>
+    <NotificationsContext.Provider value={{ friendGames, friendRequests: pendingIncoming, unseenCount, markAllSeen }}>
       {children}
     </NotificationsContext.Provider>
   );

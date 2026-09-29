@@ -14,7 +14,10 @@ can bring to venues.
   friend directly, and a group chat for everyone in an open play session
   once you've joined it (or you're hosting). From inside a game's chat you
   can add anyone there as a friend with one tap — no code exchange needed,
-  since you're both already looking at the same session.
+  since you're both already looking at the same session. A red dot shows
+  up on the Chat tab (and on the specific conversation in the Chat list)
+  whenever someone sends you a new message you haven't opened yet, and
+  clears the moment you open that thread.
 - **Private, invite-only sessions** — perfect for a standing weekly game.
   Toggle a session to Private when creating it and you get a 6-character
   invite code to text your crew; they join from Discover → "Have a code?"
@@ -29,9 +32,14 @@ can bring to venues.
   they want to get paid: Cash, an account number/handle, or both, plus an
   optional note ("send before Friday"). It shows on the session page to
   everyone who joins.
-- **Friends and in-app notifications** — add friends by sharing a 6-character
-  friend code (Profile → Friends), or with one tap from inside a shared
-  game's chat. When a friend posts a public open game you'll see a live
+- **Friends, with a real request/accept step, and in-app notifications** —
+  add friends by sharing a 6-character friend code (Profile → Friends), or
+  with one tap from inside a shared game's chat. In live mode that sends a
+  request, not an instant add: the other person sees it under "Requests" on
+  their Friends page and in Notifications, with Accept/Decline buttons, and
+  you're only friends once they accept. (Demo mode has no second device to
+  notify, so adding there stays instant, same as before — see "Local
+  identity" below.) When a friend posts a public open game you'll see a live
   banner if the app is open, plus a badge on the bell icon and an entry in
   Notifications the next time you open it. See "How notifications actually
   work" below for what this does and doesn't cover.
@@ -77,11 +85,12 @@ before you wire up the real backend.
 1. Go to [supabase.com](https://supabase.com), sign up (the free tier is
    enough for a friend group), and create a new project.
 2. Open the **SQL Editor**, paste in the full contents of
-   `supabase/schema.sql` from this repo, and run it. This creates three
-   tables: `sessions`, `profiles` (so friends can be looked up by code), and
-   `friendships` — with permissive row-level security appropriate for a
-   small trusted group testing together (see the security note inside that
-   file for what that trade-off means).
+   `supabase/schema.sql` from this repo, and run it. This creates four
+   tables: `sessions`, `profiles` (so friends can be looked up by code),
+   `friendships` (request + accept), and `messages` (chat) — with permissive
+   row-level security appropriate for a small trusted group testing
+   together (see the security note inside that file for what that
+   trade-off means).
 3. Turn on Realtime for the sessions table so joins and new games show up
    live: **Database → Replication → supabase_realtime**, toggle on
    `sessions`.
@@ -203,6 +212,33 @@ If you skip step 1 and push the code first, posting a new session will
 fail (the database won't have the columns the app is trying to write to)
 — so migration first, code push second.
 
+## Shipping this specific update (friend requests, unread chat dot, nav fix)
+
+This update changes how adding a friend works (a request + accept step
+instead of an instant add), adds a small red unread dot to the Chat tab,
+and fixes the `+` button in the bottom bar so it sits inline instead of
+floating over the chat message box. The friend-request part touches the
+database, so it needs a migration first, same order as previous updates:
+
+1. **Run the migration.** Supabase project → SQL Editor → New query, paste
+   in the full contents of `supabase/migration_004_friend_requests.sql`,
+   and run it. This adds a `status` column to the `friendships` table
+   (defaulting existing rows to `accepted`, so nobody who's already friends
+   is affected) and a policy allowing that column to be updated (needed for
+   Accept). Nothing existing is deleted.
+2. **Get the new code in and push it** — unzip into your project folder
+   without disturbing `.git` (see Step 2 of "How future updates roll out"
+   above if you need the exact commands), then `git add -A`, `git commit`,
+   `git push`.
+3. **Confirm it worked**: on the live site, add a friend by code from a
+   second account/device — it should say "Request sent" instead of adding
+   them immediately, and the other person should see it under Friends →
+   Requests and in Notifications with Accept/Decline buttons. Send a chat
+   message from one account and check the other sees a small red dot on
+   the Chat tab until they open that thread. Open the app on a phone and
+   confirm the `+` button in the bottom bar sits level with the other icons
+   instead of floating above them.
+
 ## Shipping this specific update (chat)
 
 This update adds a new `messages` table, so it needs the same
@@ -260,9 +296,11 @@ group testing the app together. The tradeoffs to know about:
   `supabase/schema.sql` let anyone with the anon key read and write any
   row. Fine behind a private link with people you trust; not something to
   expose publicly as-is.
-- Friend adds are instant and mutual (no request/accept step) — entering
-  someone's code immediately connects you both. Simple on purpose; a real
-  request flow is a small addition later if it turns out to matter.
+- Friend adds require acceptance in live mode — entering someone's code (or
+  one-tapping them from a shared game's chat) sends a request; you're
+  friends once they hit Accept on their Friends page or Notifications. In
+  demo mode, with no second device around to notify, adding still connects
+  you both instantly — that's a deliberate demo-only shortcut, not a bug.
 - Upgrading to real accounts later (Supabase Auth with magic links, for
   example) is a contained change — mostly `IdentityContext.tsx` and the RLS
   policies — and won't require touching the UI much.
@@ -333,5 +371,8 @@ supabase/migration_002_freeform_venues.sql
                               the freeform-venue change (see below)
 supabase/migration_003_chat.sql
                               run once against an ALREADY-LIVE project to add chat
+supabase/migration_004_friend_requests.sql
+                              run once against an ALREADY-LIVE project to add
+                              friend request/accept
 .env.example                  copy to .env for live mode
 ```

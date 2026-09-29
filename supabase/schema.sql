@@ -82,27 +82,35 @@ create policy "public insert" on profiles for insert with check (true);
 create policy "public update" on profiles for update using (true);
 
 
--- Friendships — instant mutual "add" (no request/accept step, to keep this
--- frictionless for a small trusted group). Adding a friend writes both
--- directions at once from the app.
+-- Friendships — request + accept. Adding a friend (by code, or the one-tap
+-- add from a shared game's chat) writes ONE row, from the requester to the
+-- other person, with status 'pending'. The friendship only counts once the
+-- other person accepts: that flips their incoming row to 'accepted' and adds
+-- the matching reverse row so both sides see it. Declining just deletes the
+-- pending row. (Demo/local mode, with no second device to notify, skips all
+-- of this and adds instantly — see FriendsContext.)
 create table if not exists friendships (
   id text primary key,
   user_id text not null references profiles(id) on delete cascade,
   friend_id text not null references profiles(id) on delete cascade,
+  status text not null default 'accepted' check (status in ('pending', 'accepted')),
   created_at timestamptz not null default now(),
   unique (user_id, friend_id)
 );
 
 create index if not exists friendships_user_id_idx on friendships (user_id);
+create index if not exists friendships_friend_id_idx on friendships (friend_id);
 
 alter table friendships enable row level security;
 
 drop policy if exists "public read" on friendships;
 drop policy if exists "public insert" on friendships;
+drop policy if exists "public update" on friendships;
 drop policy if exists "public delete" on friendships;
 
 create policy "public read" on friendships for select using (true);
 create policy "public insert" on friendships for insert with check (true);
+create policy "public update" on friendships for update using (true);
 create policy "public delete" on friendships for delete using (true);
 
 

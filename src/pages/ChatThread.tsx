@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Send, UserPlus, Check } from 'lucide-react';
+import { ArrowLeft, Send, UserPlus, Check, Clock } from 'lucide-react';
 import { useChat } from '../context/ChatContext';
 import { useFriends } from '../context/FriendsContext';
 import { useSessions } from '../context/SessionsContext';
@@ -12,15 +12,15 @@ import type { ChatScope } from '../types';
 export default function ChatThread() {
   const { scope, scopeId } = useParams<{ scope: string; scopeId: string }>();
   const navigate = useNavigate();
-  const { messages, sendMessage } = useChat();
-  const { friends, addFriendById } = useFriends();
+  const { messages, sendMessage, markThreadRead } = useChat();
+  const { friends, pendingOutgoing, addFriendById } = useFriends();
   const { sessions } = useSessions();
   const { id: myId } = useIdentity();
 
   const [draft, setDraft] = useState('');
   const [sendError, setSendError] = useState('');
   const [sending, setSending] = useState(false);
-  const [justAdded, setJustAdded] = useState<Record<string, boolean>>({});
+  const [justAdded, setJustAdded] = useState<Record<string, 'friend' | 'pending'>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const isSession = scope === 'session';
@@ -38,6 +38,14 @@ export default function ChatThread() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: 'end' });
   }, [thread.length]);
+
+  // Being on this screen counts as having seen it — clears on open, and again
+  // whenever a new message lands while it's still open so the nav dot never
+  // re-lights for a thread you're actively looking at.
+  useEffect(() => {
+    if (!threadId) return;
+    markThreadRead(effectiveScope, threadId);
+  }, [effectiveScope, threadId, thread.length, markThreadRead]);
 
   if (isSession && !session) {
     return (
@@ -77,7 +85,7 @@ export default function ChatThread() {
   const handleAddFriend = async (p: { id: string; name: string; initials: string }) => {
     const result = await addFriendById(p);
     if (result.ok) {
-      setJustAdded((prev) => ({ ...prev, [p.id]: true }));
+      setJustAdded((prev) => ({ ...prev, [p.id]: result.pending ? 'pending' : 'friend' }));
     }
   };
 
@@ -98,14 +106,15 @@ export default function ChatThread() {
           {session.joined
             .filter((p) => p.id !== myId)
             .map((p) => {
-              const isFriend = friends.some((f) => f.id === p.id) || justAdded[p.id];
+              const isFriend = friends.some((f) => f.id === p.id) || justAdded[p.id] === 'friend';
+              const isPending = !isFriend && (pendingOutgoing.some((f) => f.id === p.id) || justAdded[p.id] === 'pending');
               return (
                 <div key={p.id} className="flex shrink-0 flex-col items-center gap-1">
                   <div className="relative">
                     <span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-3 text-[10px] font-bold text-ink-dim">
                       {p.initials}
                     </span>
-                    {!isFriend && (
+                    {!isFriend && !isPending && (
                       <button
                         onClick={() => handleAddFriend(p)}
                         className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-lime text-void"
@@ -113,6 +122,14 @@ export default function ChatThread() {
                       >
                         <UserPlus size={11} strokeWidth={2.5} />
                       </button>
+                    )}
+                    {isPending && (
+                      <span
+                        className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-surface-3 text-ink-faint"
+                        aria-label={`Request sent to ${p.name}, waiting on them to accept`}
+                      >
+                        <Clock size={11} strokeWidth={2.5} />
+                      </span>
                     )}
                     {isFriend && (
                       <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-cyan text-void">
